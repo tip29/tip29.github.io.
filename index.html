@@ -2,157 +2,140 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
 <title>Полигон</title>
 <style>
-  body{margin:0;font-family:sans-serif;background:#1e1e2e;color:#fff;text-align:center;padding-bottom:30px}
-  #top{padding:10px;font-size:20px}
-  canvas{width:100%;max-width:480px;background:#4a6b3a;touch-action:none;border-radius:8px}
-  button{font-size:16px;padding:10px 12px;margin:4px;border:0;border-radius:8px;background:#f5b301;color:#000}
-  button.item{background:#444;color:#fff}
-  button.sel{outline:3px solid #fff}
-  #msg{min-height:28px;font-size:18px;padding:6px}
-  h3{margin:12px 0 4px}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;font-family:system-ui,sans-serif;background:#12141c;color:#fff;text-align:center;user-select:none;-webkit-user-select:none}
+.screen{display:none;min-height:100vh;padding:16px}
+.screen.on{display:block}
+h1{margin:20px 0 4px;font-size:40px;letter-spacing:4px}
+h2{margin:8px 0 12px}
+h3{margin:18px 0 6px}
+.sub{color:#9aa;margin-bottom:14px}
+.btn{display:block;width:100%;max-width:320px;margin:10px auto;padding:16px;font-size:20px;border:0;border-radius:12px;background:#f5b301;color:#111;font-weight:700}
+.btn.dark{background:#2a2f3d;color:#fff}
+.btn:disabled{opacity:.4}
+.coins{font-size:22px;margin:8px}
+.card{background:#1f2330;border-radius:12px;padding:12px;margin:10px auto;max-width:420px;text-align:left}
+.card b{font-size:18px}
+.small{font-size:13px;color:#9aa;margin-top:2px}
+.row{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.item{padding:10px 12px;border-radius:10px;background:#2a2f3d;color:#fff;border:2px solid transparent;font-size:15px;text-align:left}
+.item.sel{border-color:#f5b301}
+.sw{display:inline-block;width:14px;height:14px;border-radius:50%;margin-right:6px;vertical-align:middle}
+#hud{display:flex;justify-content:space-between;max-width:520px;margin:0 auto;padding:6px 12px;font-size:18px}
+#game{padding:0}
+canvas{display:block;margin:0 auto;border-radius:8px;touch-action:none}
+#reveal{font-size:26px;font-weight:700;min-height:40px;margin:8px}
 </style>
 </head>
 <body>
-<div id="top">💰 Валюта: <b id="coins">0</b></div>
-<canvas id="c"></canvas>
-<div id="msg">Стреляй по мишеням! Тапай по экрану.</div>
 
-<h3>Магазин кейсов</h3>
-<div id="shop"></div>
+<div id="menu" class="screen on">
+  <h1>🎯 ПОЛИГОН</h1>
+  <div class="sub">Стреляй, копи валюту, открывай кейсы</div>
+  <div class="coins">💰 <b id="mcoins">0</b></div>
+  <div class="small" id="mgear"></div>
+  <div class="small" id="mbest"></div>
+  <br>
+  <button class="btn" onclick="startGame()">▶ Играть</button>
+  <button class="btn dark" onclick="show('shop')">🛒 Магазин кейсов</button>
+  <button class="btn dark" onclick="show('inv')">🎒 Инвентарь</button>
+  <button class="btn dark" onclick="show('help')">❓ Как играть</button>
+  <button class="btn dark" id="sndBtn" onclick="toggleSnd()"></button>
+</div>
 
-<h3>Оружие</h3>
-<div id="weapons"></div>
-<h3>Скины</h3>
-<div id="skins"></div>
+<div id="game" class="screen">
+  <div id="hud">
+    <span>💰 <b id="gcoins">0</b></span>
+    <span>⏱ <b id="gtime">60</b></span>
+    <span id="gammo"></span>
+  </div>
+  <canvas id="c"></canvas>
+  <div style="display:flex;gap:8px;justify-content:center;margin-top:6px;padding:0 8px">
+    <button class="btn dark" style="width:45%;margin:0;padding:12px;font-size:17px" onclick="startReload()">🔄 Перезарядка</button>
+    <button class="btn dark" style="width:45%;margin:0;padding:12px;font-size:17px" onclick="endGame(false)">☰ Меню</button>
+  </div>
+  <div id="over" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);padding:15vh 16px 0;z-index:5">
+    <h2>⏱ Раунд окончён</h2>
+    <div id="ores" class="card" style="text-align:center;font-size:18px"></div>
+    <button class="btn" onclick="startGame()">🔁 Ещё раз</button>
+    <button class="btn dark" onclick="show('shop')">🛒 В магазин</button>
+    <button class="btn dark" onclick="show('menu')">☰ В меню</button>
+  </div>
+</div>
+
+<div id="shop" class="screen">
+  <h2>🛒 Магазин кейсов</h2>
+  <div class="coins">💰 <b id="scoins">0</b></div>
+  <div id="reveal"></div>
+  <div id="cases"></div>
+  <button class="btn dark" onclick="show('menu')">← Назад</button>
+</div>
+
+<div id="inv" class="screen">
+  <h2>🎒 Инвентарь</h2>
+  <h3>Оружие</h3><div class="row" id="invw"></div>
+  <h3>Скины</h3><div class="row" id="invs"></div>
+  <br>
+  <button class="btn dark" onclick="show('menu')">← Назад</button>
+</div>
+
+<div id="help" class="screen">
+  <h2>❓ Как играть</h2>
+  <div class="card">
+    <p>🎯 Раунд длится <b>60 секунд</b>. Мишени выскакивают на трёх дистанциях: чем дальше, тем меньше мишень.</p>
+    <p>👆 <b>Коснись экрана</b> — выстрел в эту точку. Можно вести пальцем, прицел следует за ним. У автоматического оружия стрельба идёт, пока палец зажат.</p>
+    <p>💰 Очки: центр — <b>10</b>, второе кольцо — <b>5</b>, третье — <b>4</b>, край — <b>3</b>.</p>
+    <p>🔄 В магазине патронов ограниченное число, потом нужна перезарядка. У каждого оружия свои отдача, разброс и скорость.</p>
+    <p>🛒 Кейсы оружия: 120 и 200. Кейсы скинов: 60 и 120.</p>
+  </div>
+  <button class="btn dark" onclick="show('menu')">← Назад</button>
+</div>
 
 <script>
-const cv = document.getElementById("c"), ctx = cv.getContext("2d");
-const W = 360, H = 480;
-cv.width = W; cv.height = H;
+const W=360,H=540,HOR=175;
+const cv=document.getElementById("c"),ctx=cv.getContext("2d");
+cv.width=W;cv.height=H;
+function fit(){const s=Math.min(innerWidth/W,(innerHeight-130)/H);cv.style.width=W*s+"px";cv.style.height=H*s+"px";}
+addEventListener("resize",fit);fit();
+cv.addEventListener("contextmenu",e=>e.preventDefault());
 
-const SK = {"Обычный":"#888","Синий":"#2b7fff","Зелёный":"#2ecc40","Оранжевый":"#ff851b",
-            "Золотой":"#ffd700","Неон":"#ff00ff","Космос":"#7d3cff"};
-const CASES = [
-  {name:"Кейс оружия (средний)", cost:120, type:"w", pool:["Револьвер","Дробовик","Винтовка"]},
-  {name:"Кейс оружия (высший)",  cost:200, type:"w", pool:["Снайперка","Автомат","Пулемёт"]},
-  {name:"Кейс скинов (средний)", cost:60,  type:"s", pool:["Синий","Зелёный","Оранжевый"]},
-  {name:"Кейс скинов (высший)",  cost:120, type:"s", pool:["Золотой","Неон","Космос"]}
+/* ---------- данные ---------- */
+const SK={"Обычный":"#5b5f66","Синий":"#2b7fff","Зелёный":"#2ecc40","Оранжевый":"#ff851b","Золотой":"#ffd700","Неон":"#ff2bd6","Космос":"cosmos"};
+const WP={
+ "Пистолет": {mag:12,rel:1100,delay:260,spr:9, sway:3,  kick:7,  auto:false,pel:1,len:150,w:46,snd:2500},
+ "Револьвер":{mag:6, rel:1800,delay:480,spr:5, sway:3,  kick:12, auto:false,pel:1,len:160,w:44,snd:1800},
+ "Дробовик": {mag:6, rel:2000,delay:750,spr:22,sway:4,  kick:16, auto:false,pel:5,len:190,w:64,snd:1200},
+ "Винтовка": {mag:10,rel:1500,delay:380,spr:5, sway:2.5,kick:9,  auto:false,pel:1,len:200,w:56,snd:2200},
+ "Снайперка":{mag:5, rel:2300,delay:950,spr:1.5,sway:1.2,kick:18,auto:false,pel:1,len:215,w:52,snd:1000,scope:true},
+ "Автомат":  {mag:30,rel:1900,delay:110,spr:8, sway:4,  kick:4,  auto:true, pel:1,len:200,w:60,snd:2800},
+ "Пулемёт":  {mag:60,rel:3200,delay:85, spr:10,sway:5,  kick:3.5,auto:true, pel:1,len:205,w:72,snd:2000}
+};
+const CASES=[
+ {name:"Кейс оружия (средний)",cost:120,type:"w",top:false,pool:["Револьвер","Дробовик","Винтовка"]},
+ {name:"Кейс оружия (высший)", cost:200,type:"w",top:true, pool:["Снайперка","Автомат","Пулемёт"]},
+ {name:"Кейс скинов (средний)",cost:60, type:"s",top:false,pool:["Синий","Зелёный","Оранжевый"]},
+ {name:"Кейс скинов (высший)", cost:120,type:"s",top:true, pool:["Золотой","Неон","Космос"]}
 ];
 
-let S;
-try { S = JSON.parse(localStorage.getItem("range")); } catch(e) {}
-if (!S) S = {coins:0, weapons:["Пистолет"], skins:["Обычный"], w:"Пистолет", s:"Обычный"};
-function save(){ try{ localStorage.setItem("range", JSON.stringify(S)); }catch(e){} }
-
-function msg(t){ document.getElementById("msg").textContent = t; }
-
-function render(){
-  document.getElementById("coins").textContent = S.coins;
-  const shop = document.getElementById("shop"); shop.innerHTML = "";
-  CASES.forEach(c => {
-    const b = document.createElement("button");
-    b.textContent = c.name + " — " + c.cost;
-    b.onclick = () => openCase(c);
-    shop.appendChild(b);
-  });
-  fill("weapons", S.weapons, S.w, n => { S.w = n; save(); render(); });
-  fill("skins", S.skins, S.s, n => { S.s = n; save(); render(); });
-}
-function fill(id, list, cur, onPick){
-  const box = document.getElementById(id); box.innerHTML = "";
-  [...new Set(list)].forEach(n => {
-    const b = document.createElement("button");
-    b.className = "item" + (n === cur ? " sel" : "");
-    b.textContent = n;
-    b.onclick = () => onPick(n);
-    box.appendChild(b);
-  });
-}
-
-function openCase(c){
-  if (S.coins < c.cost){ msg("Не хватает валюты! Нужно " + c.cost); return; }
-  S.coins -= c.cost;
-  const prize = c.pool[Math.floor(Math.random() * c.pool.length)];
-  if (c.type === "w"){ S.weapons.push(prize); S.w = prize; }
-  else { S.skins.push(prize); S.s = prize; }
-  msg("🎁 Выпало: " + prize + "! (уже надето)");
-  save(); render();
-}
-
-// ---- игра ----
-let targets = [], pops = [], aim = {x: W/2, y: 100}, flash = 0;
-
-setInterval(() => {
-  if (targets.length < 4){
-    const r = 24 + Math.random() * 10;
-    targets.push({x: 40 + Math.random() * (W - 80), y: 50 + Math.random() * 230,
-                  r: r, born: Date.now(), life: 2200});
+/* ---------- сохранение ---------- */
+let S=null;
+try{S=JSON.parse(localStorage.getItem("range2"));}catch(e){}
+if(!S){
+  let o=null;try{o=JSON.parse(localStorage.getItem("range"));}catch(e){}
+  S={coins:o&&o.coins||0,weapons:["Пистолет"],skins:["Обычный"],w:"Пистолет",s:"Обычный",snd:true,best:0};
+  if(o){
+    S.weapons=[...new Set(["Пистолет"].concat(o.weapons||[]))].filter(n=>WP[n]);
+    S.skins=[...new Set(["Обычный"].concat(o.skins||[]))].filter(n=>SK[n]);
+    if(WP[o.w])S.w=o.w; if(SK[o.s])S.s=o.s;
   }
-}, 800);
-
-cv.addEventListener("pointerdown", e => {
-  const rc = cv.getBoundingClientRect();
-  const x = (e.clientX - rc.left) * W / rc.width;
-  const y = (e.clientY - rc.top) * H / rc.height;
-  aim = {x, y}; flash = 6;
-  for (let i = targets.length - 1; i >= 0; i--){
-    const t = targets[i];
-    const d = Math.hypot(x - t.x, y - t.y);
-    if (d <= t.r){
-      const k = d / t.r;
-      let pts = k < 0.2 ? 10 : k < 0.5 ? 5 : k < 0.75 ? 4 : 3;
-      S.coins += pts; save();
-      document.getElementById("coins").textContent = S.coins;
-      pops.push({x: t.x, y: t.y, text: "+" + pts, born: Date.now()});
-      targets.splice(i, 1);
-      break;
-    }
-  }
-});
-
-function drawTarget(t){
-  const rings = [[1,"#d33"],[0.75,"#fff"],[0.5,"#d33"],[0.2,"#fff"]];
-  rings.forEach(([k,c]) => {
-    ctx.fillStyle = c; ctx.beginPath();
-    ctx.arc(t.x, t.y, t.r * k, 0, Math.PI * 2); ctx.fill();
-  });
-  ctx.strokeStyle = "#000"; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.arc(t.x, t.y, t.r, 0, Math.PI * 2); ctx.stroke();
 }
+if(!WP[S.w])S.w="Пистолет"; if(!SK[S.s])S.s="Обычный";
+function save(){try{localStorage.setItem("range2",JSON.stringify(S));}catch(e){}}
 
-function drawMan(){
-  const bx = W / 2, by = H - 70;
-  ctx.fillStyle = "#2c3e50"; ctx.fillRect(bx - 14, by, 28, 45);        // тело
-  ctx.fillStyle = "#f1c27d"; ctx.beginPath();
-  ctx.arc(bx, by - 12, 12, 0, Math.PI * 2); ctx.fill();                 // голова
-  ctx.fillStyle = "#1b2a38"; ctx.fillRect(bx - 13, by - 24, 26, 8);     // каска
-  const a = Math.atan2(aim.y - (by + 15), aim.x - bx);
-  ctx.save(); ctx.translate(bx, by + 15); ctx.rotate(a);
-  ctx.fillStyle = SK[S.s] || "#888"; ctx.fillRect(0, -4, 38, 8);        // оружие
-  if (flash > 0){ ctx.fillStyle = "#ff0"; ctx.fillRect(38, -6, 10, 12); }
-  ctx.restore();
-  ctx.fillStyle = "#fff"; ctx.font = "13px sans-serif"; ctx.textAlign = "center";
-  ctx.fillText(S.w + " · " + S.s, bx, H - 8);
-}
-
-function loop(){
-  ctx.clearRect(0, 0, W, H);
-  const now = Date.now();
-  targets = targets.filter(t => now - t.born < t.life);
-  targets.forEach(drawTarget);
-  pops = pops.filter(p => now - p.born < 700);
-  pops.forEach(p => {
-    ctx.fillStyle = "#ffe600"; ctx.font = "bold 22px sans-serif"; ctx.textAlign = "center";
-    ctx.fillText(p.text, p.x, p.y - (now - p.born) / 20);
-  });
-  drawMan();
-  if (flash > 0) flash--;
-  requestAnimationFrame(loop);
-}
-render(); loop();
-</script>
-</body>
-</html>
+/* ---------- звук ---------- */
+let AC=null;
+function tone(f,dur,ty,v){const o=AC.createOscillator(),g=AC.createGain();o.type=ty;o.frequency.value=f;
+  g
