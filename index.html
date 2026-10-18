@@ -1,30 +1,158 @@
-
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Мои игры</title>
-  <style>
-    body { font-family: sans-serif; background: #1e1e2e; color: #fff;
-           text-align: center; padding: 40px 16px; }
-    input, button { font-size: 18px; padding: 8px 12px; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Полигон</title>
+<style>
+  body{margin:0;font-family:sans-serif;background:#1e1e2e;color:#fff;text-align:center;padding-bottom:30px}
+  #top{padding:10px;font-size:20px}
+  canvas{width:100%;max-width:480px;background:#4a6b3a;touch-action:none;border-radius:8px}
+  button{font-size:16px;padding:10px 12px;margin:4px;border:0;border-radius:8px;background:#f5b301;color:#000}
+  button.item{background:#444;color:#fff}
+  button.sel{outline:3px solid #fff}
+  #msg{min-height:28px;font-size:18px;padding:6px}
+  h3{margin:12px 0 4px}
+</style>
 </head>
 <body>
-  <h1>Угадай число от 1 до 100</h1>
-  <input id="guess" type="number">
-  <button onclick="check()">Проверить</button>
-  <p id="result"></p>
+<div id="top">💰 Валюта: <b id="coins">0</b></div>
+<canvas id="c"></canvas>
+<div id="msg">Стреляй по мишеням! Тапай по экрану.</div>
 
-  <script>
-    const secret = Math.floor(Math.random() * 100) + 1;
-    function check() {
-      const n = Number(document.getElementById("guess").value);
-      const r = document.getElementById("result");
-      if (n === secret) r.textContent = "Верно! 🎉";
-      else r.textContent = n < secret ? "Больше" : "Меньше";
+<h3>Магазин кейсов</h3>
+<div id="shop"></div>
+
+<h3>Оружие</h3>
+<div id="weapons"></div>
+<h3>Скины</h3>
+<div id="skins"></div>
+
+<script>
+const cv = document.getElementById("c"), ctx = cv.getContext("2d");
+const W = 360, H = 480;
+cv.width = W; cv.height = H;
+
+const SK = {"Обычный":"#888","Синий":"#2b7fff","Зелёный":"#2ecc40","Оранжевый":"#ff851b",
+            "Золотой":"#ffd700","Неон":"#ff00ff","Космос":"#7d3cff"};
+const CASES = [
+  {name:"Кейс оружия (средний)", cost:120, type:"w", pool:["Револьвер","Дробовик","Винтовка"]},
+  {name:"Кейс оружия (высший)",  cost:200, type:"w", pool:["Снайперка","Автомат","Пулемёт"]},
+  {name:"Кейс скинов (средний)", cost:60,  type:"s", pool:["Синий","Зелёный","Оранжевый"]},
+  {name:"Кейс скинов (высший)",  cost:120, type:"s", pool:["Золотой","Неон","Космос"]}
+];
+
+let S;
+try { S = JSON.parse(localStorage.getItem("range")); } catch(e) {}
+if (!S) S = {coins:0, weapons:["Пистолет"], skins:["Обычный"], w:"Пистолет", s:"Обычный"};
+function save(){ try{ localStorage.setItem("range", JSON.stringify(S)); }catch(e){} }
+
+function msg(t){ document.getElementById("msg").textContent = t; }
+
+function render(){
+  document.getElementById("coins").textContent = S.coins;
+  const shop = document.getElementById("shop"); shop.innerHTML = "";
+  CASES.forEach(c => {
+    const b = document.createElement("button");
+    b.textContent = c.name + " — " + c.cost;
+    b.onclick = () => openCase(c);
+    shop.appendChild(b);
+  });
+  fill("weapons", S.weapons, S.w, n => { S.w = n; save(); render(); });
+  fill("skins", S.skins, S.s, n => { S.s = n; save(); render(); });
+}
+function fill(id, list, cur, onPick){
+  const box = document.getElementById(id); box.innerHTML = "";
+  [...new Set(list)].forEach(n => {
+    const b = document.createElement("button");
+    b.className = "item" + (n === cur ? " sel" : "");
+    b.textContent = n;
+    b.onclick = () => onPick(n);
+    box.appendChild(b);
+  });
+}
+
+function openCase(c){
+  if (S.coins < c.cost){ msg("Не хватает валюты! Нужно " + c.cost); return; }
+  S.coins -= c.cost;
+  const prize = c.pool[Math.floor(Math.random() * c.pool.length)];
+  if (c.type === "w"){ S.weapons.push(prize); S.w = prize; }
+  else { S.skins.push(prize); S.s = prize; }
+  msg("🎁 Выпало: " + prize + "! (уже надето)");
+  save(); render();
+}
+
+// ---- игра ----
+let targets = [], pops = [], aim = {x: W/2, y: 100}, flash = 0;
+
+setInterval(() => {
+  if (targets.length < 4){
+    const r = 24 + Math.random() * 10;
+    targets.push({x: 40 + Math.random() * (W - 80), y: 50 + Math.random() * 230,
+                  r: r, born: Date.now(), life: 2200});
+  }
+}, 800);
+
+cv.addEventListener("pointerdown", e => {
+  const rc = cv.getBoundingClientRect();
+  const x = (e.clientX - rc.left) * W / rc.width;
+  const y = (e.clientY - rc.top) * H / rc.height;
+  aim = {x, y}; flash = 6;
+  for (let i = targets.length - 1; i >= 0; i--){
+    const t = targets[i];
+    const d = Math.hypot(x - t.x, y - t.y);
+    if (d <= t.r){
+      const k = d / t.r;
+      let pts = k < 0.2 ? 10 : k < 0.5 ? 5 : k < 0.75 ? 4 : 3;
+      S.coins += pts; save();
+      document.getElementById("coins").textContent = S.coins;
+      pops.push({x: t.x, y: t.y, text: "+" + pts, born: Date.now()});
+      targets.splice(i, 1);
+      break;
     }
-  </script>
+  }
+});
+
+function drawTarget(t){
+  const rings = [[1,"#d33"],[0.75,"#fff"],[0.5,"#d33"],[0.2,"#fff"]];
+  rings.forEach(([k,c]) => {
+    ctx.fillStyle = c; ctx.beginPath();
+    ctx.arc(t.x, t.y, t.r * k, 0, Math.PI * 2); ctx.fill();
+  });
+  ctx.strokeStyle = "#000"; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(t.x, t.y, t.r, 0, Math.PI * 2); ctx.stroke();
+}
+
+function drawMan(){
+  const bx = W / 2, by = H - 70;
+  ctx.fillStyle = "#2c3e50"; ctx.fillRect(bx - 14, by, 28, 45);        // тело
+  ctx.fillStyle = "#f1c27d"; ctx.beginPath();
+  ctx.arc(bx, by - 12, 12, 0, Math.PI * 2); ctx.fill();                 // голова
+  ctx.fillStyle = "#1b2a38"; ctx.fillRect(bx - 13, by - 24, 26, 8);     // каска
+  const a = Math.atan2(aim.y - (by + 15), aim.x - bx);
+  ctx.save(); ctx.translate(bx, by + 15); ctx.rotate(a);
+  ctx.fillStyle = SK[S.s] || "#888"; ctx.fillRect(0, -4, 38, 8);        // оружие
+  if (flash > 0){ ctx.fillStyle = "#ff0"; ctx.fillRect(38, -6, 10, 12); }
+  ctx.restore();
+  ctx.fillStyle = "#fff"; ctx.font = "13px sans-serif"; ctx.textAlign = "center";
+  ctx.fillText(S.w + " · " + S.s, bx, H - 8);
+}
+
+function loop(){
+  ctx.clearRect(0, 0, W, H);
+  const now = Date.now();
+  targets = targets.filter(t => now - t.born < t.life);
+  targets.forEach(drawTarget);
+  pops = pops.filter(p => now - p.born < 700);
+  pops.forEach(p => {
+    ctx.fillStyle = "#ffe600"; ctx.font = "bold 22px sans-serif"; ctx.textAlign = "center";
+    ctx.fillText(p.text, p.x, p.y - (now - p.born) / 20);
+  });
+  drawMan();
+  if (flash > 0) flash--;
+  requestAnimationFrame(loop);
+}
+render(); loop();
+</script>
 </body>
-</html> 
+</html>
