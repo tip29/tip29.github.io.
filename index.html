@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -95,7 +94,11 @@ canvas{display:block;margin:0 auto;border-radius:8px;touch-action:none}
   <button class="btn dark" onclick="show('menu')">← Назад</button>
 </div>
 
-<script>
+<script src="data.js"></script>
+<script src="shoot.js"></script>
+<script src="draw.js"></script>
+</body>
+</html>
 const W=360,H=540,HOR=175;
 const cv=document.getElementById("c"),ctx=cv.getContext("2d");
 cv.width=W;cv.height=H;
@@ -103,7 +106,6 @@ function fit(){const s=Math.min(innerWidth/W,(innerHeight-130)/H);cv.style.width
 addEventListener("resize",fit);fit();
 cv.addEventListener("contextmenu",e=>e.preventDefault());
 
-/* ---------- данные ---------- */
 const SK={"Обычный":"#5b5f66","Синий":"#2b7fff","Зелёный":"#2ecc40","Оранжевый":"#ff851b","Золотой":"#ffd700","Неон":"#ff2bd6","Космос":"cosmos"};
 const WP={
  "Пистолет": {mag:12,rel:1100,delay:260,spr:9, sway:3,  kick:7,  auto:false,pel:1,len:150,w:46,snd:2500},
@@ -121,7 +123,6 @@ const CASES=[
  {name:"Кейс скинов (высший)", cost:120,type:"s",top:true, pool:["Золотой","Неон","Космос"]}
 ];
 
-/* ---------- сохранение ---------- */
 let S=null;
 try{S=JSON.parse(localStorage.getItem("range2"));}catch(e){}
 if(!S){
@@ -136,7 +137,6 @@ if(!S){
 if(!WP[S.w])S.w="Пистолет"; if(!SK[S.s])S.s="Обычный";
 function save(){try{localStorage.setItem("range2",JSON.stringify(S));}catch(e){}}
 
-/* ---------- звук ---------- */
 let AC=null;
 function tone(f,dur,ty,v){const o=AC.createOscillator(),g=AC.createGain();o.type=ty;o.frequency.value=f;
   g.gain.setValueAtTime(v,AC.currentTime);g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+dur);
@@ -162,7 +162,6 @@ function sound(t){
 }
 function toggleSnd(){S.snd=!S.snd;save();renderMenu();}
 
-/* ---------- экраны ---------- */
 const SCR=["menu","game","shop","inv","help"];
 let inGame=false,playing=false;
 function show(n){
@@ -219,9 +218,7 @@ function openCase(c){
     sound("click");save();opening=false;renderShop();
   },1500);
 }
-
-/* ---------- фон полигона (рисуется один раз) ---------- */
-const bg=document.createElement("canvas");bg.width=W;bg.height=H;
+    const bg=document.createElement("canvas");bg.width=W;bg.height=H;
 (function(){
   const g=bg.getContext("2d");let s;
   s=g.createLinearGradient(0,0,0,HOR);s.addColorStop(0,"#5aa6f0");s.addColorStop(1,"#d6ecff");
@@ -251,7 +248,6 @@ const bg=document.createElement("canvas");bg.width=W;bg.height=H;
 const vg=ctx.createRadialGradient(W/2,H/2,H*0.35,W/2,H/2,H*0.8);
 vg.addColorStop(0,"rgba(0,0,0,0)");vg.addColorStop(1,"rgba(0,0,0,.45)");
 
-/* ---------- состояние игры ---------- */
 const ROWS=[{y:222,sc:.62,n:5,x0:45,x1:315},{y:282,sc:.85,n:4,x0:55,x1:305},{y:352,sc:1.15,n:3,x0:70,x1:290}];
 let targets=[],pops=[],puffs=[];
 let ax=W/2,ay=250,down=false,recoil=0,flash=0,recVis=0,lastShot=0,lastSpawn=0;
@@ -277,4 +273,160 @@ function aimPos(n){
 }
 
 function shootAt(px,py,n){
-  const list=targets.filter(t=>!t.hit&&prog(t,n)>.85).sort((
+  const list=targets.filter(t=>!t.hit&&prog(t,n)>.85).sort((a,b)=>b.ri-a.ri);
+  for(const t of list){
+    const cx=t.x,cy=t.y-50*t.sc,d=Math.hypot(px-cx,py-cy);
+    if(d<=t.R){
+      const k=d/t.R,pts=k<.2?10:k<.5?5:k<.75?4:3;
+      t.holes.push({x:px-cx,y:py-cy});t.hit=n;
+      S.coins+=pts;earned+=pts;save();
+      pops.push({x:cx,y:cy,t:"+"+pts,b:n,c:pts===10?"#ffe600":"#fff"});
+      sound("hit");return true;
+    }
+  }
+  if(py>HOR)puffs.push({x:px,y:py,b:n});
+  return false;
+}
+function fire(){
+  if(!playing||reloading)return;
+  const n=now(),wp=WP[S.w];
+  if(n-lastShot<wp.delay)return;
+  if(ammo<=0){startReload();return;}
+  lastShot=n;ammo--;shotsN++;
+  const a=aimPos(n),r=wp.spr+recoil*0.7;let any=false;
+  for(let k=0;k<wp.pel;k++){
+    const ang=Math.random()*6.283,d=Math.sqrt(Math.random())*r;
+    if(shootAt(a.x+Math.cos(ang)*d,a.y+Math.sin(ang)*d,n))any=true;
+  }
+  if(any)hitsN++;
+  recoil=Math.min(40,recoil+wp.kick);flash=4;recVis=1;
+  sound("shot");
+  if(ammo<=0)setTimeout(()=>{if(playing)startReload();},200);
+}
+function startReload(){
+  if(!playing||reloading)return;
+  const wp=WP[S.w];if(ammo>=wp.mag)return;
+  reloading=1;relEnd=now()+wp.rel;sound("reload");
+}
+function updHud(){
+  document.getElementById("gcoins").textContent=S.coins;
+  document.getElementById("gtime").textContent=Math.max(0,Math.ceil((endAt-now())/1000));
+  document.getElementById("gammo").textContent=reloading?"🔄 перезарядка…":"🔫 "+ammo+"/"+WP[S.w].mag;
+}
+function startGame(){
+  show("game");
+  targets=[];pops=[];puffs=[];ammo=WP[S.w].mag;reloading=0;earned=0;hitsN=0;shotsN=0;recoil=0;
+  lastSpawn=0;endAt=now()+60000;playing=true;
+  for(let i=0;i<3;i++)spawn();
+  fit();updHud();
+}
+function endGame(done){
+  playing=false;
+  if(!done){show("menu");return;}
+  const acc=shotsN?Math.round(hitsN/shotsN*100):0;
+  let rec="";if(earned>S.best){S.best=earned;rec="<br>🏆 <b>Новый рекорд!</b>";}
+  save();
+  document.getElementById("ores").innerHTML="Заработано: <b>💰 "+earned+"</b><br>Выстрелов: "+shotsN+", попаданий: "+hitsN+" ("+acc+"%)"+rec;
+  document.getElementById("over").style.display="block";
+}
+
+function setAim(e){
+  const r=cv.getBoundingClientRect();
+  ax=Math.max(10,Math.min(W-10,(e.clientX-r.left)*W/r.width));
+  ay=Math.max(30,Math.min(H-120,(e.clientY-r.top)*H/r.height));
+}
+cv.addEventListener("pointerdown",e=>{e.preventDefault();cv.setPointerCapture(e.pointerId);down=true;setAim(e);fire();});
+cv.addEventListener("pointermove",e=>{if(down||e.pointerType==="mouse")setAim(e);});
+cv.addEventListener("pointerup",()=>{down=false;});
+cv.addEventListener("pointercancel",()=>{down=false;});
+    function shade(h,p){
+  const n=parseInt(h.slice(1),16),f=v=>Math.max(0,Math.min(255,Math.round(v*(1+p/100))));
+  return "rgb("+f(n>>16)+","+f(n>>8&255)+","+f(n&255)+")";
+}
+function drawTarget(t,n){
+  const p=prog(t,n);if(p<=0)return;
+  const sc=t.sc,R=t.R,cy=-50*sc,s=R*1.25;
+  ctx.save();ctx.translate(t.x,t.y);ctx.scale(1,p);
+  ctx.fillStyle="rgba(0,0,0,.25)";ctx.beginPath();ctx.ellipse(0,0,14*sc,4*sc,0,0,7);ctx.fill();
+  ctx.fillStyle="#6b4a2b";ctx.fillRect(-2.5*sc,cy,5*sc,-cy);
+  ctx.fillStyle="#e9dcb8";ctx.fillRect(-s,cy-s,2*s,2*s);
+  ctx.strokeStyle="rgba(0,0,0,.4)";ctx.lineWidth=1;ctx.strokeRect(-s,cy-s,2*s,2*s);
+  [[1,"#c62828"],[.75,"#f4f4f4"],[.5,"#c62828"],[.2,"#f4f4f4"]].forEach(a=>{
+    ctx.fillStyle=a[1];ctx.beginPath();ctx.arc(0,cy,R*a[0],0,7);ctx.fill();
+  });
+  ctx.strokeStyle="rgba(0,0,0,.35)";ctx.beginPath();ctx.arc(0,cy,R,0,7);ctx.stroke();
+  ctx.fillStyle="#111";
+  t.holes.forEach(h=>{ctx.beginPath();ctx.arc(h.x,cy+h.y,Math.max(1.4,1.9*sc),0,7);ctx.fill();});
+  ctx.restore();
+}
+function drawGun(n){
+  const wp=WP[S.w],col=SK[S.s],kick=recVis*18;
+  const bx=W/2+36,by=H+8+kick,a=aimPos(n);
+  const tx=W/2+(a.x-W/2)*0.32+8,ty=H-wp.len+kick*0.4,wB=wp.w,wF=wp.w*0.24;
+  const g=ctx.createLinearGradient(bx-wB/2,0,bx+wB/2,0);
+  if(col==="cosmos"){g.addColorStop(0,"#2b1a8a");g.addColorStop(.5,"#7d3cff");g.addColorStop(1,"#12b5e5");}
+  else{g.addColorStop(0,shade(col,-35));g.addColorStop(.45,col);g.addColorStop(1,shade(col,-55));}
+  ctx.save();
+  if(S.s==="Неон"){ctx.shadowColor="#ff2bd6";ctx.shadowBlur=14;}
+  if(S.s==="Золотой"){ctx.shadowColor="#ffd700";ctx.shadowBlur=8;}
+  ctx.fillStyle=g;ctx.strokeStyle="rgba(0,0,0,.75)";ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(bx-wB/2,by);ctx.lineTo(tx-wF/2,ty);ctx.lineTo(tx+wF/2,ty);ctx.lineTo(bx+wB/2,by);ctx.closePath();
+  ctx.fill();ctx.stroke();ctx.restore();
+  ctx.strokeStyle="rgba(0,0,0,.35)";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(tx,ty);ctx.stroke();
+  ctx.fillStyle="#111";ctx.fillRect(tx-wF/2-2,ty-4,wF+4,6);
+  ctx.beginPath();ctx.moveTo(tx-3,ty-4);ctx.lineTo(tx,ty-12);ctx.lineTo(tx+3,ty-4);ctx.fill();
+  if(wp.scope){
+    const px=bx+(tx-bx)*.45,py=by+(ty-by)*.45;
+    ctx.fillStyle="#15171c";ctx.fillRect(px-10,py-42,20,84);
+    ctx.fillStyle="#4af";ctx.beginPath();ctx.ellipse(px,py-42,10,4,0,0,7);ctx.fill();
+  }
+  ctx.fillStyle="#34495e";ctx.fillRect(bx-wB*.9,by-6,wB*1.8,50);
+  ctx.fillStyle="#d9a574";ctx.beginPath();ctx.ellipse(bx,by-28,wB*.6,32,0,0,7);ctx.fill();
+  ctx.strokeStyle="rgba(0,0,0,.3)";ctx.lineWidth=1.5;ctx.stroke();
+  if(flash>0){
+    ctx.fillStyle="rgba(255,225,120,.95)";ctx.beginPath();
+    for(let i=0;i<16;i++){const r=i%2?7:(wp.pel>1?26:18),an=i/16*6.283;ctx.lineTo(tx+Math.cos(an)*r,ty+Math.sin(an)*r);}
+    ctx.closePath();ctx.fill();
+    ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(tx,ty,5,0,7);ctx.fill();
+  }
+}
+function draw(n){
+  ctx.drawImage(bg,0,0);
+  targets.slice().sort((a,b)=>a.ri-b.ri).forEach(t=>drawTarget(t,n));
+  puffs=puffs.filter(p=>n-p.b<450);
+  puffs.forEach(p=>{const k=(n-p.b)/450;ctx.fillStyle="rgba(170,140,95,"+(0.6*(1-k))+")";
+    ctx.beginPath();ctx.arc(p.x,p.y,3+k*9,0,7);ctx.fill();});
+  pops=pops.filter(p=>n-p.b<700);
+  pops.forEach(p=>{ctx.fillStyle=p.c;ctx.strokeStyle="#000";ctx.lineWidth=3;ctx.font="bold 22px sans-serif";ctx.textAlign="center";
+    const y=p.y-(n-p.b)/18;ctx.strokeText(p.t,p.x,y);ctx.fillText(p.t,p.x,y);});
+  drawGun(n);
+  const a=aimPos(n),r=Math.max(5,WP[S.w].spr+recoil*0.7);
+  ctx.strokeStyle="rgba(255,255,255,.9)";ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.arc(a.x,a.y,r,0,7);ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(a.x-r-8,a.y);ctx.lineTo(a.x-3,a.y);ctx.moveTo(a.x+3,a.y);ctx.lineTo(a.x+r+8,a.y);
+  ctx.moveTo(a.x,a.y-r-8);ctx.lineTo(a.x,a.y-3);ctx.moveTo(a.x,a.y+3);ctx.lineTo(a.x,a.y+r+8);
+  ctx.stroke();
+  ctx.fillStyle="#f33";ctx.fillRect(a.x-1,a.y-1,2,2);
+  ctx.fillStyle=vg;ctx.fillRect(0,0,W,H);
+  if(reloading){
+    const k=1-(relEnd-n)/WP[S.w].rel;
+    ctx.fillStyle="rgba(0,0,0,.5)";ctx.fillRect(W/2-60,H-40,120,10);
+    ctx.fillStyle="#f5b301";ctx.fillRect(W/2-60,H-40,120*Math.max(0,Math.min(1,k)),10);
+  }
+}
+function loop(){
+  const n=now();
+  if(playing){
+    if(n>=endAt)endGame(true);
+    if(reloading&&n>=relEnd){ammo=WP[S.w].mag;reloading=0;sound("click");}
+    if(down&&WP[S.w].auto)fire();
+    if(n-lastSpawn>650){lastSpawn=n;if(targets.length<5)spawn();}
+    targets=targets.filter(t=>!((t.hit&&n-t.hit>220)||n>t.born+t.life+250));
+    updHud();
+  }
+  recoil*=0.9;recVis*=0.85;if(flash>0)flash--;
+  if(inGame)draw(n);
+  requestAnimationFrame(loop);
+}
+renderMenu();loop();
