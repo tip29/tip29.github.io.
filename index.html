@@ -94,11 +94,7 @@ canvas{display:block;margin:0 auto;border-radius:8px;touch-action:none}
   <button class="btn dark" onclick="show('menu')">← Назад</button>
 </div>
 
-<script src="data.js"></script>
-<script src="shoot.js"></script>
-<script src="draw.js"></script>
-</body>
-</html>
+<script>
 const W=360,H=540,HOR=175;
 const cv=document.getElementById("c"),ctx=cv.getContext("2d");
 cv.width=W;cv.height=H;
@@ -106,6 +102,7 @@ function fit(){const s=Math.min(innerWidth/W,(innerHeight-130)/H);cv.style.width
 addEventListener("resize",fit);fit();
 cv.addEventListener("contextmenu",e=>e.preventDefault());
 
+/* ---------- данные ---------- */
 const SK={"Обычный":"#5b5f66","Синий":"#2b7fff","Зелёный":"#2ecc40","Оранжевый":"#ff851b","Золотой":"#ffd700","Неон":"#ff2bd6","Космос":"cosmos"};
 const WP={
  "Пистолет": {mag:12,rel:1100,delay:260,spr:9, sway:3,  kick:7,  auto:false,pel:1,len:150,w:46,snd:2500},
@@ -123,6 +120,7 @@ const CASES=[
  {name:"Кейс скинов (высший)", cost:120,type:"s",top:true, pool:["Золотой","Неон","Космос"]}
 ];
 
+/* ---------- сохранение ---------- */
 let S=null;
 try{S=JSON.parse(localStorage.getItem("range2"));}catch(e){}
 if(!S){
@@ -136,7 +134,7 @@ if(!S){
 }
 if(!WP[S.w])S.w="Пистолет"; if(!SK[S.s])S.s="Обычный";
 function save(){try{localStorage.setItem("range2",JSON.stringify(S));}catch(e){}}
-
+  /* ---------- звук ---------- */
 let AC=null;
 function tone(f,dur,ty,v){const o=AC.createOscillator(),g=AC.createGain();o.type=ty;o.frequency.value=f;
   g.gain.setValueAtTime(v,AC.currentTime);g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+dur);
@@ -162,6 +160,7 @@ function sound(t){
 }
 function toggleSnd(){S.snd=!S.snd;save();renderMenu();}
 
+/* ---------- экраны ---------- */
 const SCR=["menu","game","shop","inv","help"];
 let inGame=false,playing=false;
 function show(n){
@@ -217,8 +216,9 @@ function openCase(c){
     rv.style.color=c.top?"#ffd700":"#5fd";
     sound("click");save();opening=false;renderShop();
   },1500);
-}
-    const bg=document.createElement("canvas");bg.width=W;bg.height=H;
+    }
+  /* ---------- фон полигона (рисуется один раз) ---------- */
+const bg=document.createElement("canvas");bg.width=W;bg.height=H;
 (function(){
   const g=bg.getContext("2d");let s;
   s=g.createLinearGradient(0,0,0,HOR);s.addColorStop(0,"#5aa6f0");s.addColorStop(1,"#d6ecff");
@@ -248,6 +248,7 @@ function openCase(c){
 const vg=ctx.createRadialGradient(W/2,H/2,H*0.35,W/2,H/2,H*0.8);
 vg.addColorStop(0,"rgba(0,0,0,0)");vg.addColorStop(1,"rgba(0,0,0,.45)");
 
+/* ---------- состояние игры ---------- */
 const ROWS=[{y:222,sc:.62,n:5,x0:45,x1:315},{y:282,sc:.85,n:4,x0:55,x1:305},{y:352,sc:1.15,n:3,x0:70,x1:290}];
 let targets=[],pops=[],puffs=[];
 let ax=W/2,ay=250,down=false,recoil=0,flash=0,recVis=0,lastShot=0,lastSpawn=0;
@@ -328,8 +329,8 @@ function endGame(done){
   save();
   document.getElementById("ores").innerHTML="Заработано: <b>💰 "+earned+"</b><br>Выстрелов: "+shotsN+", попаданий: "+hitsN+" ("+acc+"%)"+rec;
   document.getElementById("over").style.display="block";
-}
-
+  }
+  /* ---------- управление ---------- */
 function setAim(e){
   const r=cv.getBoundingClientRect();
   ax=Math.max(10,Math.min(W-10,(e.clientX-r.left)*W/r.width));
@@ -339,7 +340,9 @@ cv.addEventListener("pointerdown",e=>{e.preventDefault();cv.setPointerCapture(e.
 cv.addEventListener("pointermove",e=>{if(down||e.pointerType==="mouse")setAim(e);});
 cv.addEventListener("pointerup",()=>{down=false;});
 cv.addEventListener("pointercancel",()=>{down=false;});
-    function shade(h,p){
+
+/* ---------- отрисовка ---------- */
+function shade(h,p){
   const n=parseInt(h.slice(1),16),f=v=>Math.max(0,Math.min(255,Math.round(v*(1+p/100))));
   return "rgb("+f(n>>16)+","+f(n>>8&255)+","+f(n&255)+")";
 }
@@ -430,3 +433,6 @@ function loop(){
   requestAnimationFrame(loop);
 }
 renderMenu();loop();
+</script>
+</body>
+</html>
